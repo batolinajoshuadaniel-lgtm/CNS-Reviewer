@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IT2502 Verbatim Reviewer</title>
+<style>
+:root { --bg:#f5f7fb; --card:#fff; --text:#172033; --muted:#64748b; --accent:#2563eb; --good:#15803d; --bad:#b91c1c; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); }
+header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.96); backdrop-filter:blur(8px); border-bottom:1px solid #e5e7eb; }
+.wrap { max-width:1000px; margin:auto; padding:20px; }
+h1 { margin:0 0 4px; font-size:28px; }
+.subtitle { color:var(--muted); margin:0; }
+.progress { margin-top:14px; height:10px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+.bar { height:100%; width:0%; background:var(--accent); transition:width .2s; }
+.card { background:var(--card); margin:24px auto; padding:26px; border-radius:18px; box-shadow:0 8px 30px rgba(15,23,42,.07); }
+.meta { color:var(--muted); font-size:14px; margin-bottom:16px; }
+.definition { font-size:19px; line-height:1.65; background:#fffbea; border-left:5px solid #facc15; padding:18px; border-radius:10px; }
+.options { display:grid; gap:12px; margin-top:22px; }
+button.option { text-align:left; border:1px solid #dbe1ea; background:white; padding:15px 16px; border-radius:12px; font-size:16px; cursor:pointer; transition:.15s; }
+button.option:hover { border-color:var(--accent); transform:translateY(-1px); }
+button.option.correct { border-color:var(--good); background:#f0fdf4; }
+button.option.wrong { border-color:var(--bad); background:#fef2f2; }
+button.option:disabled { cursor:default; }
+mark.kw { background:#ffeb3b; padding:1px 3px; border-radius:3px; font-weight:800; }
+.feedback { min-height:26px; margin-top:16px; font-weight:700; }
+.controls { display:flex; gap:10px; justify-content:space-between; margin-top:22px; }
+.controls button, .topbtn { border:0; border-radius:10px; padding:11px 16px; cursor:pointer; font-weight:700; }
+.primary { background:var(--accent); color:white; }
+.secondary { background:#e2e8f0; color:#172033; }
+.score { text-align:center; font-size:22px; font-weight:800; }
+.note { color:var(--muted); font-size:13px; line-height:1.5; }
+kbd { background:#eef2ff; padding:2px 6px; border-radius:5px; }
+
+.auth-panel { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px; background:#f8fafc; }
+.auth-status { color:var(--muted); font-size:14px; }
+.login-box { margin-top:10px; padding:14px; border:1px solid #dbe1ea; border-radius:12px; background:#fff; }
+.login-title { font-weight:800; margin-bottom:10px; }
+.login-fields { display:flex; flex-wrap:wrap; gap:8px; }
+.login-fields input { min-width:220px; flex:1; border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px; font:inherit; }
+.login-message { margin-top:8px; font-size:13px; color:var(--bad); min-height:18px; }
+.admin-badge { color:var(--good); font-weight:800; }
+.admin-only-note { color:var(--muted); font-size:13px; margin:0 0 8px; }
+</style>
+</head>
+<body>
+<header>
+<div class="wrap">
+<h1>IT2502 Verbatim Reviewer</h1>
+<p class="subtitle">Handout 03 and Handout 04 — Multiple Choice Review</p>
+
+<div class="auth-panel" id="authPanel">
+  <div class="auth-status" id="authStatus">Viewer mode — no login required.</div>
+  <button class="topbtn secondary" id="loginButton" type="button">Admin Login</button>
+</div>
+
+<div class="login-box" id="loginBox" hidden>
+  <div class="login-title">Admin Login</div>
+  <div class="login-fields">
+    <input id="loginEmail" type="email" autocomplete="username" placeholder="Admin email">
+    <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password">
+    <button class="topbtn primary" id="submitLogin" type="button">Sign in</button>
+    <button class="topbtn secondary" id="cancelLogin" type="button">Cancel</button>
+  </div>
+  <div class="login-message" id="loginMessage"></div>
+</div>
+
+<div class="progress"><div class="bar" id="bar"></div></div>
+</div>
+</header>
+<main class="wrap">
+<div class="card">
+<p class="note">Question wording and answer choices are taken from terms/definitions in the uploaded PDFs. No rephrasing of source definitions is used.</p>
+<div id="app"></div>
+</div>
+</main>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+const DATA = {"title": "IT2502 Verbatim Reviewer", "subtitle": "Handout 03 and Handout 04 — Multiple Choice Review", "source_note": "Question wording and answer choices are taken from terms/definitions in the uploaded PDFs. No rephrasing of source definitions is used.", "questions": [{"id": 1, "definition": "Natural factors such as fires, floods, power failures, lightning, meteor s, and earthquakes are potential threats to the assets of an organization. For example, these may cause severe physical damage to computer systems.", "options": ["Natural Threats", "Vulnerability", "Fake Security Applications", "Passive Scanning"], "answer": 0}, {"id": 2, "definition": "Threats that exist due to the potential for unintentional errors occurring within the organization. Examples include insider-originating security breaches, negligence, operator errors, unskilled administrators, lazy or untrained employees, and accidents.", "options": ["Unintentional Threats", "Vendors of the Target Organization", "Offline Attacks", "Phishing"], "answer": 0}, {"id": 3, "definition": "A program in which malicious or harmful code is contained inside a harmless program or data, which can later gain control and cause damage, such as ruining the file allocation table on a hard disk. Attackers use computer Trojans to trick the victim into performing a predefined action. Trojans are activated upon users’ specific predefined actions, such as unintentionally installing malicious software, clicking on a malicious link, etc., and upon activation, they can grant attackers unrestricted access to all the data stored on the compromised information system and potentially cause severe damage. For example, users could download a file that appears to be a movie, but, when executed, unleashes a dangerous program that erases the hard drive or sends credit card numbers and passwords to the attacker.", "options": ["Trojan", "Host-based Assessment", "Zero-Day Vulnerabilities", "Open Services"], "answer": 0}, {"id": 4, "definition": "A self-replicating program that produces its code by attaching copies of itself to other executable code and operates without the knowledge or consent of the user. Like a biological virus, a computer virus is contagious and can contaminate other files; howe ver, viruses can infect external machines only with the assistance of computer users. A virus reproduces its code while enclosing other executables and spreads throughout the computer. Viruses can spread the infection by damaging files in a file system. Some viruses reside in the memory and may infect programs through the boot sector. A virus can also be in an encrypted form.", "options": ["Dumpster Diving", "Virus", "Publishing Malicious Apps", "Active Online Attacks"], "answer": 1}, {"id": 5, "definition": "A type of malware that restricts access to the infected computer system or critical files and documents stored on it, and then demands an online ransom payment to the malware creator(s) to remove user restrictions. It is a type of crypto -malware that might encrypt files stored on the system’s hard disk or merely lock the system and display messages meant to trick the user into paying the ransom. After execution, the payload in the ransomware runs and encrypts the victim’s data (files and documents), which can be decrypted only by the malware author. In some cases, user interaction is restricted using a simple payload. Examples of ransomware include Dharma, SamSam, Ryuk, GandCrab, and WannaCry.", "options": ["Syllable Attack", "Lawsuits and Arbitration", "Legacy Platform Vulnerabilities", "Ransomware"], "answer": 3}, {"id": 6, "definition": "Potentially unwanted applications or programs (PUAs or PUPs, respectively), also known as grayware/junkware, are potentially harmful applications that may pose severe risks to the security and privacy of data stored in the system where they are installed. Most PUAs originate from sources such as legitimate software packages and even malicious applications used for illegal activities. PUAs can degrade system performance and compromise privacy and data security. Most PUAs get installed when downloading and installing freeware using a third -party installer or when accepting a misleading license agreement. PUAs can covertly monitor and alter the data or settings in the system, similarly to other malware.", "options": ["Chain Letter", "Default Passwords", "PUAs or Grayware", "Senior Executives"], "answer": 2}, {"id": 7, "definition": "A collection of compromised computers connected to the Internet to perform a distributed task. Attackers distribute malicious software that turns a user’s computer into a bot, which refers to a program or an infected system that performs repetitive work or acts as an agent or as a user interface to control other programs. The infected computer then performs automated tasks without the user’s permission. Attackers use bots to infect a large number of computers. Cyber-criminals who control bots are called botmasters. Bots spread across the Internet and search for vulnerable and unprotected systems. When it finds an exposed system, it quickly infects the system and reports back to the botmaster. Botmasters use infected computers to perform various automated tasks. They may instruct the infected systems to transmit viruses, worms, spam, and spyware.", "options": ["Botnets", "Passive Scanning", "Vendors of the Target Organization", "Natural Threats"], "answer": 0}, {"id": 8, "definition": "This is the most common vulnerability and is mainly caused by human error, which allows attackers to gain unauthorized access to the system. It may happen intentionally or unintentionally and affect web servers, application platforms, databases, and networks.", "options": ["Unintentional Threats", "Design Flaws", "Misconfiguration", "Reverse Social Engineering"], "answer": 2}, {"id": 9, "definition": "These are usually user-friendly, especially when the device is being used for the first time, when the primary concern is the usability of the device rather than the device’s security. In some cases, infected devices may not contain any valuable information, but are connected to networks or systems that have confidential information that would result in a data breach. Failing to change the default settings while deploying the software or hardware allows the attacker to guess the settings to break into the system.", "options": ["Passive Online Attacks", "Piggybacking", "Spear Phishing", "Default Installations"], "answer": 3}, {"id": 10, "definition": "These are common software vulnerabilities that happen due to coding errors that allow attackers to gain access to the target system. In a buffer overflow attack, the attackers undermine the functioning of programs and try to take control of the system by writing cont ent beyond the allocated size of the buffer. Insufficient bounds checking in the program is the root cause. The buffer is not able to handle data beyond its limit, causing the flow of data to adjacent memory locations and overw riting their data values. Systems often crash, become unstable, or show erratic behavior when a buffer overflow occurs.", "options": ["Buffer Overflows", "Distributed Denial-of-Service (DDoS)", "Chain Letter", "Senior Executives"], "answer": 0}, {"id": 11, "definition": "A n essential component of the infrastructure of any organization. There are several cases where organizations run unpatched and misconfigured servers that compromise the security and integrity of the data in their systems. Hackers look out for these vulnera bilities in the servers and exploit them. As these unpatched servers are a hub for the attackers, they serve as an entry point into the network. This can lead to the exposure of private data, financial loss, and the discontinuation of o perations. Updating software regularly and maintaining systems properly by patching and fixing bugs can help in mitigating the vulnerabilities caused by unpatched servers.", "options": ["Receptionists and Help-Desk Personnel", "Unpatched Servers", "Zero-Day Vulnerabilities", "Shoulder Surfing"], "answer": 1}, {"id": 12, "definition": "Vulnerabilities due to design flaws are universal to all operating devices and systems. Design vulnerabilities, such as incorrect encryption or poor validation of data, are logical flaws in the functionality of the system that attackers exploit to bypass the detection mechanism and acquire access to a secure system.", "options": ["Technical Support Executives", "Design Flaws", "Automated Assessment", "Vendors of the Target Organization"], "answer": 1}, {"id": 13, "definition": "Due to vulnerabilities in the operating systems, applications such as trojans, worms, and viruses pose threats. These attacks use malicious code, script, or unwanted software, which results in the loss of sensitive information and control of computer operations. Timely patching of the OS, installing minimal software applications, and using applications with firewall capabilities are essential steps that an administrator must take to protect the OS from attacks.", "options": ["Operating System Flaws", "Fake Security Applications", "Pharming", "Application Flaws"], "answer": 0}, {"id": 14, "definition": "These are vulnerabilities in applications that attackers exploit. Applications should be secured using the validation and authorization of the user. Flawed applications have security threats such as data tampering and unauthorized access to configuration stores. If the applications are not secured, sensitive information may be lost or corrupted. Hence, developers must understand the anatomy of common security vulnerabilities.", "options": ["Application Flaws", "Spam Mail", "Wireless Network Assessment", "Instant Chat Messenger"], "answer": 0}, {"id": 15, "definition": "Open ports and services may lead to the loss of data or DoS attacks and allow attackers to perform further attacks on other connected devices. Administrators must continuously check for unnecessary or insecure ports and services to reduce the risk to the network.", "options": ["Verification", "Dictionary", "Open Services", "Repackaging Legitimate Apps"], "answer": 2}, {"id": 16, "definition": "Manufacturers provide users with default passwords to access the device during its initial setup, which users must change for future use. When users forget to update their passwords and continue using the default passwords, they make devices and systems vulnerable to various attacks, such as brute force and dictionary attacks. Attackers exploit this vulnerability to obtain access", "options": ["Non-Electronic Attacks", "Database Assessment", "Default Passwords", "Dumpster Diving"], "answer": 2}, {"id": 17, "definition": "Unknown vulnerabilities in software/hardware that are exposed but not yet patched. The attackers exploit these before being acknowledged and patched by the software developers or security analysts. Zero -day vulnerabilities are one of the major cyber threats that continuously expose vulnerable systems until they are repaired.", "options": ["Damage to Goodwill", "Virus", "Zero-Day Vulnerabilities", "Scareware"], "answer": 2}, {"id": 18, "definition": "These are exposed from old or familiar code. However, they could cause costly data breaches for organizations. Using these outdated codes, attackers can easily discover zero-day vulnerabilities in the system or software that are not yet patched.", "options": ["Trojan", "Dangers of Terrorism", "Legacy Platform Vulnerabilities", "Offline Attacks"], "answer": 2}, {"id": 19, "definition": "The attacker interacts directly with the target network to find vulnerabilities. Active scanning helps in simulating an attack on the target network to uncover vulnerabilities that the attacker can exploit. For example, an attacker sends probes and specially crafted requests to the target host in the network to identify vulnerabilities.", "options": ["Pharming", "Active Scanning", "Design Flaws", "Dangers of Terrorism"], "answer": 1}, {"id": 20, "definition": "The attacker tries to find vulnerabilities without directly interacting with the target network. The attacker identifies vulnerabilities via information exposed by systems during normal communications. Passive scanning identifies the active operating syst ems, applications, and ports throughout the target network, monitoring activity to determine its vulnerabilities. This approach provides information about weaknesses but does not provide a path for directly combating attacks. For example, an attacker guesses the operating system information, applications, and application and service versions by observing the TCP connection setup and teardown.", "options": ["Password Cracking", "Passive Scanning", "Identify Assets and Create a Baseline", "Vulnerability Scan"], "answer": 1}, {"id": 21, "definition": "A type of vulnerability assessment that uses network scanners to identify the hosts, services, and vulnerabilities present in a network. Active network scanners can reduce the intrusiveness of the checks they perform.", "options": ["Active Assessment", "Hybrid Attack", "Economic Losses", "Virus"], "answer": 0}, {"id": 22, "definition": "Passive assessments sniff the traffic present on the network to identify the active systems, network services, applications, and vulnerabilities. Passive assessments also provide a list of the users who are currently accessing the network.", "options": ["Passive Assessment", "Monitor", "Application Flaws", "Piggybacking"], "answer": 0}, {"id": 23, "definition": "External assessment examines the network from a hacker’s point of view to identify exploits and vulnerabilities accessible to the outside world. These types of assessments use external devices such as firewalls, routers, and servers. An external assessment estimates the threat of network security attacks from outside the organization. It determines the level of security of the external network and firewall.", "options": ["External Assessment", "SMiShing (SMS Phishing)", "Design Flaws", "Buffer Overflows"], "answer": 0}, {"id": 24, "definition": "This involves scrutinizing the internal network to find exploits and vulnerabilities.", "options": ["Internal Assessment", "Non-Electronic Attacks", "Temporary or Permanent Closure", "Active Assessment"], "answer": 0}, {"id": 25, "definition": "A type of security check that involves conducting a configuration-level check to identify system configurations, user directories, file systems, registry settings, and other parameters to evaluate the possibility of compromise. These assessments check the security of a particular network or se rver. Host-based scanners assess systems to identify vulnerabilities such as native configuration tables, incorrect registry or file permissions, and software configuration errors. Host-based assessments use many commercial and open-source scanning tools.", "options": ["Senior Executives", "Dumpster Diving", "Host-based Assessment", "Distributed Assessment"], "answer": 2}, {"id": 26, "definition": "This determines the possible network security attacks that may occur on an organization’s system. These assessments discover network resources and map the ports and services running to various areas of the network. It evaluates the organization’s system for vulnerabilities such as missing patches, unnecessary services, weak authentication, and weak encryption. Network assessment professionals use firewalls and network scanners, such as Nessus. These scan ners identify open ports, recognize the services running on those por ts, and detect vulnerabilities associated with these services.", "options": ["Network-based Assessment", "SMiShing (SMS Phishing)", "Gap Analysis", "Legacy Platform Vulnerabilities"], "answer": 0}, {"id": 27, "definition": "F ocuses on transactional web applications, traditional client -server applications, and hybrid systems. It analyzes all elements of an application infrastructure, including deployment and communication with the client and server. This type of assessment test s the web server infrastructure for any misconfiguration, outdated content, or known vulnerabilities. Security professionals use both commercial and open-source tools to perform such assessments.", "options": ["Internal Assessment", "Dictionary", "Verification", "Application Assessment"], "answer": 3}, {"id": 28, "definition": "This is any assessment focused on testing the databases for the presence of any misconfiguration or known vulnerabilities. These assessments mainly concentrate on testing various database technologies like MYSQL, MSSQL, ORACLE, and POSTGRESQL to identify data exposure or injection -type vulnerabilities. Security professionals use both commercial and open - source tools to perform such assessments.", "options": ["Database Assessment", "External Assessment", "Remediation", "Publishing Malicious Apps"], "answer": 0}, {"id": 29, "definition": "Determines the vulnerabilities in an organization’s wireless networks. In the past, wireless networks used weak and defective data encryption mechanisms. Now, wireless network standards have evolved, but many networks still use weak and outdated security mechanisms and are open to attack. Wireless network assessments try to attack wireless authentication mechanisms and gain unauthorized access. This type of assessment tests wireless networks and identifies rogue networks that may exist within an organization’s perimeter.", "options": ["Piggybacking", "Wireless Network Assessment", "Active Assessment", "Repackaging Legitimate Apps"], "answer": 1}, {"id": 30, "definition": "This type of assessment, employed by organizations that possess assets like servers and clients at different locations, involves simultaneously assessing the distributed organization assets, such as client and server applications, using appropriate synchro nization techniques. Synchronization plays a critical role in this type of assessment. By synchronizing the test runs together, all the separate assets situated at multiple locations can be tested at the same time.", "options": ["Unintentional Threats", "Temporary or Permanent Closure", "Vulnerability", "Distributed Assessment"], "answer": 3}, {"id": 31, "definition": "After performing footprinting and network scanning and obtaining crucial information, if the security professional performs manual research for exploring the vulnerabilities or weaknesses, they manually rank the vulnerabilities and score them by referring to vulnerability scoring standards like CVSS (Common Vulnerability Scoring System) and vulnerability databases like CVE (Common Vulnerabilities and Exposures) and CWE (Common Weakness Enumeration) . Such assessments are considered to be manual.", "options": ["Trojan", "Manual Assessment", "Automated Assessment", "Lawsuits and Arbitration"], "answer": 1}, {"id": 32, "definition": "An assessment where a security professional uses vulnerability assessment tools such as Nessus, Qualys, or GFI LanGuard to perform a vulnerability assessment of the target is called an automated assessment. Unlike manual assessments, the security professio nal does not perform footprinting and network scanning. They employ computerized tools that can perform all such activities and are also capable of identifying weaknesses and CVSS scores, acquiring critical CVE/CWE information related to the vulnerability, and suggesting remediation strategies.", "options": ["Misconfiguration", "Lawsuits and Arbitration", "Automated Assessment", "Vulnerability Assessment"], "answer": 2}, {"id": 33, "definition": "This phase identifies critical assets and prioritizes them to define the risk based on the criticality and value of each system. This creates a good baseline for vulnerability management. This phase involves the gathering of information about the identifie d", "options": ["Social engineering attacks are categorized into three categories", "Identify Assets and Create a Baseline", "Whaling", "Non-Electronic Attacks"], "answer": 1}, {"id": 34, "definition": "This phase is very crucial in vulnerability management. In this step, the security analyst performs a vulnerability scan on the network to identify the known vulnerabilities in the organization’s infrastructure. This can also be performed on applicable compliance templates to assess the organization’s infrastructure weaknesses against the respective compliance guidelines.", "options": ["Passive Assessment", "Vulnerability", "PUAs or Grayware", "Vulnerability Scan"], "answer": 3}, {"id": 35, "definition": "In this phase, all serious uncertainties that are associated with the system are assessed and prioritized, and remediation is planned to permanently eliminate system flaws. The risk assessment summarizes the vulnerability and risk level identified for each of the selected assets. It determines whether the risk level for a particular asset is high, moderate, or low.", "options": ["Social engineering attacks are categorized into three categories", "Senior Executives", "Risk Assessment", "Damage to Goodwill"], "answer": 2}, {"id": 36, "definition": "The process of applying fixes to vulnerable systems in order to reduce the impact and severity of vulnerabilities. This phase is initiated after the successful implementation of the baseline and assessment steps.", "options": ["PUAs or Grayware", "Remediation", "Zero-Day Vulnerabilities", "Spam Mail"], "answer": 1}, {"id": 37, "definition": "In this phase, the security team performs a re -scan of systems to assess if the required remediation is complete and whether the individual fixes have been applied to the impacted assets. This phase provides clear visibility into the firm and allows the security team to check whether all the previous phases have been perfectly employed or not. Verification can be performed by using various means such as ticketing systems, scanners, and reports.", "options": ["Monitor", "Fake Security Applications", "Shoulder Surfing", "Verification"], "answer": 3}, {"id": 38, "definition": "Organizations need to perform regular monitoring to maintain system security. They use tools such as IDS/IPS and firewalls. Continuous monitoring identifies potential threats and any new vulnerabilities that have evolved. As per security best practices, al l phases of vulnerability management must be performed regularly.", "options": ["Damage to Goodwill", "Monitor", "Unintentional Threats", "Publishing Malicious Apps"], "answer": 1}, {"id": 39, "definition": "This is, for most cases, the attacker’s first attempt at gaining target system passwords. Non-electronic or non -technical attacks do not require any technical knowledge about hacking or system exploitation. Techniques used to perform non -electronic attacks include shoulder surfing, social engineering, dumpster diving, etc.", "options": ["System Administrators", "Non-Electronic Attacks", "Passive Assessment", "PUAs or Grayware"], "answer": 1}, {"id": 40, "definition": "This is one of the easiest ways to gain unauthorized administrator-level system access. Here, the attacker communicates with the target machine to gain password access. Techniques used to perform active online attacks include password guessing, dictionary and brute-forcing attacks, hash injection, LLMNR/NBT -NS poisoning, use of Trojans/spyware/keyloggers, internal monologue attacks, Markov-chain attacks, Kerberos password cracking, etc.", "options": ["Whaling", "Pop-up Windows", "Active Online Attacks", "Dumpster Diving"], "answer": 2}, {"id": 41, "definition": "A passive attack is a type of system attack that does not lead to any changes in the system. In this attack, the attacker does not have to communicate with the system, but passively monitors or records the data passing over the communication channel, to and from the system. The data are then used to break into the system. Techniques used to perform passive online attacks include wire sniffing, man-in-the-middle attacks, replay attacks, etc.", "options": ["Legacy Platform Vulnerabilities", "Passive Online Attacks", "SMiShing (SMS Phishing)", "Default Installations"], "answer": 1}, {"id": 42, "definition": "Offline attacks refer to password attacks in which an attacker tries to recover cleartext passwords from a password hash dump. Offline attacks are often time -consuming but have a high success rate, as the password hashes can be reversed owing to their small keyspace and short length.", "options": ["Offline Attacks", "Unpatched Servers", "Verification", "Unintentional Threats"], "answer": 0}, {"id": 43, "definition": "In this type of attack, a dictionary file is loaded into a cracking application that runs against user accounts. This dictionary is a text file that contains several dictionary words commonly used as passwords. The program uses every word present in the di ctionary to find the password. In addition to a standard dictionary, an attacker’s dictionaries contain entries with numbers and symbols added to words (e.g., “3December!962”). Simple keyboard finger rolls (“qwer0987”), which many believe produce random and secure passwords, are thus included in such a dictionary. Dictionary attacks are more useful than brute -force attacks; however, the former cannot be performed in systems using passphrases.", "options": ["Spimming", "Password Cracking", "Dictionary", "Senior Executives"], "answer": 2}, {"id": 44, "definition": "Attackers use this type of attack when they obtain some information about the password. This is a more powerful attack than dictionary and brute-force attacks because the cracker knows the password type. For example, if the attacker knows that the password contains a two- or three-digit number, they can use some specific techniques to extract the password quickly. By obtaining useful information, such as the method in which numbers and/or special characters have been used, and password length, attackers can minimize the time required to crack the password and therefore enhance the cracking tool. This technique invol ves brute force, a dictionary, and syllable attacks. For online password -cracking attacks, an attacker will sometimes use a combination of both brute force and a dictionary. This combination falls into the categories of hybrid and syllable password - cracking attacks:", "options": ["Impersonation", "Dumpster Diving", "Rule-based Attack", "Tailgating"], "answer": 2}, {"id": 45, "definition": "This type of attack depends on the dictionary attack. Often, people change their passwords merely by adding some numbers to their old passwords. In this case, the program would add some numbers and symbols to the words from the dictionary to try to crack the password. For example, if the old password is “system,” then there is a chance that the person will change it to “system1” or “system2.”", "options": ["Hybrid Attack", "PUAs or Grayware", "Users and Clients", "Dictionary"], "answer": 0}, {"id": 46, "definition": "Hackers use this cracking technique when passwords are not known words. Attackers use the dictionary and other methods to crack them, as well as all possible combinations of them.", "options": ["Syllable Attack", "Rule-based Attack", "Pharming", "Offline Attacks"], "answer": 0}, {"id": 47, "definition": "Packet sniffing is a form of wire sniffing or wiretapping in which hackers sniff credentials during transit by capturing Internet packets. Attackers rarely use sniffers to perform this type of attack. With packet sniffing, an attacker can gain passwords to applications s uch as email, websites, SMB, FTP, rlogin sessions, or SQL. As sniffers run in the background, the victim remains unaware of the sniffing. As sniffers gather packets at the data link layer, they can grab all the packets on the LAN of the machine running the sniffer program. This method is relatively hard to perpetrate and computationally complicated. This is because a network with a hub imple ments a broadcast medium that all systems", "options": ["Threat", "Risk Assessment", "Open Services", "Wire Sniffing"], "answer": 3}, {"id": 48, "definition": "Social engineers generally target service -desk or help-desk personnel by tricking them into divulging confidential information about the organization. To extract information, such as a phone number or password, the attacker first wins the trust of the in dividual with the information. On winning their trust, the attacker manipulates them to get valuable information. Receptionists and help-desk staff may readily share information if they feel they are doing so to help a customer.", "options": ["External Assessment", "Receptionists and Help-Desk Personnel", "Open Services", "Scareware"], "answer": 1}, {"id": 49, "definition": "Another target of social engineers is technical support executives. The social engineers may take the approach of contacting technical support executives to obtain sensitive information by pretending to be senior management, customers, vendors, or other figures.", "options": ["Whaling", "Internal Assessment", "Fake Security Applications", "Technical Support Executives"], "answer": 3}, {"id": 50, "definition": "A system administrator in an organization is responsible for maintaining the systems. Thus, they may have critical information such as the type and version of the OS and admin passwords, which could be helpful for an attacker in planning an attack.", "options": ["System Administrators", "Repackaging Legitimate Apps", "Active Assessment", "Spam Mail"], "answer": 0}, {"id": 51, "definition": "Attackers could approach users and clients of the target organization, pretending to be a tech support person, to extract sensitive information.", "options": ["Wire Sniffing", "Users and Clients", "Botnets", "Publishing Malicious Apps"], "answer": 1}, {"id": 52, "definition": "Attackers may also target the vendors of the organization to gain critical information that could help in executing attacks.", "options": ["Vendors of the Target Organization", "Password Cracking", "Legacy Platform Vulnerabilities", "Distributed Assessment"], "answer": 0}, {"id": 53, "definition": "Attackers could also approach senior executives from various departments , such as Finance, HR, and CxOs, to obtain critical information about the organization.", "options": ["Active Assessment", "Senior Executives", "Offline Attacks", "Social Engineering Campaign"], "answer": 1}, {"id": 54, "definition": "Competitors may use social engineering techniques to steal sensitive information such as the development plans and marketing strategies of the target company, which can result in economic loss.", "options": ["Economic Losses", "Social engineering attacks are categorized into three categories", "PUAs or Grayware", "Active Online Attacks"], "answer": 0}, {"id": 55, "definition": "For an organization, goodwill is important for attracting customers. Social engineering attacks may damage that goodwill by leaking sensitive organizational data.", "options": ["Damage to Goodwill", "Application Flaws", "Verification", "Natural Threats"], "answer": 0}, {"id": 56, "definition": "Privacy is a major concern, especially for big organizations. If an organization is unable to maintain the privacy of its stakeholders or customers, then people can lose trust in the company and may discontinue their business association with the organization. Consequently, the organization could face losses.", "options": ["Loss of Privacy", "Verification", "Publishing Malicious Apps", "Natural Threats"], "answer": 0}, {"id": 57, "definition": "Terrorism and anti-social elements pose a threat to an organization’s assets — people and property. Terrorists may use social engineering techniques to make blueprints of their targets to infiltrate their targets.", "options": ["Piggybacking", "Dictionary", "Dangers of Terrorism", "Virus"], "answer": 2}, {"id": 58, "definition": "Lawsuits and arbitration result in negative publicity for an organization and affect the business’s performance.", "options": ["Technical Support Executives", "Distributed Denial-of-Service (DDoS)", "Active Online Attacks", "Lawsuits and Arbitration"], "answer": 3}, {"id": 59, "definition": "Social engineering attacks can result in a loss of goodwill. Lawsuits and arbitration may force the temporary or permanent closure of an organization and its business activities.", "options": ["Lawsuits and Arbitration", "Social engineering", "Temporary or Permanent Closure", "Vulnerability Scan"], "answer": 2}, {"id": 60, "definition": "human-based, computer-based, and mobile- based.", "options": ["Reverse Social Engineering", "Network-based Assessment", "Active Scanning", "Social engineering attacks are categorized into three categories"], "answer": 3}, {"id": 61, "definition": "A common human-based social engineering technique where an attacker pretends to be a legitimate or authorized person. Attackers perform impersonation attacks personally or use a phone or another communication medium to mislead their target and trick them in to revealing information. The attacker might impersonate a courier or delivery person, janitor, businessman, client, technician, or they may pretend to be a visitor. Using this technique, the attacker gathers sensitive information by scanning terminals for passwords, searching for important documents on employees’ desks, rummaging through bins, and through other tactics. The attacker may even try to overhear confidenti al conversations and “shoulder surf” to obtain sensitive information.", "options": ["Password Cracking", "Active Online Attacks", "Impersonation", "Dangers of Terrorism"], "answer": 2}, {"id": 62, "definition": "R efers to an unauthorized person listening to a conversation or reading others’ messages. It includes the interception of any form of communication, including audio, video, or written, using channels such as telephone lines, email, and instant messaging. An attacker can obtain sensitive information such as passwords, business plans, phone numbers, and addresses.", "options": ["Chain Letter", "Spimming", "Default Passwords", "Eavesdropping"], "answer": 3}, {"id": 63, "definition": "The technique of looking over someone’s shoulder as they key information into a device. Attackers use shoulder surfing to find out passwords, personal identification numbers, account numbers, and other information. They sometimes even use binoculars and oth er optical devices or install small cameras to record the actions performed on the victim’s system to obtain login details and other sensitive information.", "options": ["Operating System Flaws", "Shoulder Surfing", "Phishing", "Application Assessment"], "answer": 1}, {"id": 64, "definition": "T he process of retrieving sensitive personal or organizational information by searching through trash bins. Attackers can extract confidential data such as user IDs, passwords, policy numbers, network diagrams, account numbers, bank statements, salary data, source code, sales forecasts, access codes, phone lists, credit card numbers, calendars, and organizational charts on paper or disk. Attackers can then use this information to perform various malicious activities. Sometimes attackers eve n use pretexts to support their dumpster diving initiatives, such as impersonating a repair person, technician, cleaner, or other legitimate worker.", "options": ["Application Flaws", "Eavesdropping", "Offline Attacks", "Dumpster Diving"], "answer": 3}, {"id": 65, "definition": "Generally, this is difficult to carry out. This is primarily because its execution needs a lot of preparation and skills. In reverse social engineering, a perpetrator assumes the role of a knowledgeable professional so that the organization’s employees ask them for information. The attacker usually manipulates questions to draw out the required information. First, the social engineer will cause an incident, creating a problem, and then present themself as the problem solver through general conversation, encouraging employees to ask questions. For example, an employee may ask how this problem has affected file s, servers, or equipment. This provides pertinent information to the social engineer.", "options": ["Application Flaws", "Reverse Social Engineering", "Impersonation", "Database Assessment"], "answer": 1}, {"id": 66, "definition": "Usually implies entry into a building or security area with the consent of the authorized person. For example, an attacker might request an authorized person to unlock a security door, saying that they have forgotten their ID badge. In the interest of commo n courtesy, the authorized person will allow the attacker to pass through the door.", "options": ["Piggybacking", "Passive Online Attacks", "Syllable Attack", "SMiShing (SMS Phishing)"], "answer": 0}, {"id": 67, "definition": "Implies accessing a building or secure area without the consent of the authorized person. It is the act of following an authorized person through a secure entrance, as a polite user would open and hold the door for those following them. An attacker, wearing a fake badge, might attempt to enter the secured area by closely following an authorized person through a door that requires key access. They then try to enter the restricted area while pretending to be an authorized person.", "options": ["Tailgating", "Scareware", "Shoulder Surfing", "Chain Letter"], "answer": 0}, {"id": 68, "definition": "A technique in which an attacker sends an email or provides a link falsely claiming to be from a legitimate site to acquire a user’s personal or account information. The attacker registers a fake domain name, builds a lookalike website, and then mails the fake website’s link to users. When a user clicks on the email link, it redirects them to the fake webpage, where they are lured into sharing sensitive details such as their address and credit card information. Some of the reasons behind the success of phishing scams include users’ lack of knowledge, being visually deceived, and not paying attention to security indicators.", "options": ["Phishing", "Wire Sniffing", "Social engineering", "Reverse Social Engineering"], "answer": 0}, {"id": 69, "definition": "Instead of sending out thousands of emails, some attackers opt for “spear phishing” and use specialized social engineering content directed at a specific employee or small group of employees in an organization to steal sensitive data such as financial information and trade secrets.", "options": ["Spear Phishing", "Trojan", "Vulnerability Assessment", "Remediation Strategies"], "answer": 0}, {"id": 70, "definition": "A type of phishing that targets high-profile executives like CEO, CFO, politicians, and celebrities who have complete access to confidential and highly valuable information.", "options": ["Whaling", "Syllable Attack", "Unpatched Servers", "Passive Scanning"], "answer": 0}, {"id": 71, "definition": "Or “Phishing without a Lure”, a social engineering technique in which the attacker executes malicious programs on a victim’s computer or server, and when the victim enters any URL or domain name, it automatically redirects the victim’s traffic to an attacker - controlled website.", "options": ["Pharming", "Spear Phishing", "Botnets", "Senior Executives"], "answer": 0}, {"id": 72, "definition": "Or Spam over Instant Messaging, exploits Instant Messaging (IM) platforms and uses them as a tool to spread spam. A person who generates spam over IM is called a Spimmer.", "options": ["Spimming", "Dumpster Diving", "Open Services", "Passive Scanning"], "answer": 0}, {"id": 73, "definition": "Pop-ups trick or compel users into clicking a hyperlink that redirects them to fake web pages asking for personal information or downloading malicious programs such as keyloggers, trojans, or spyware. The common method of enticing a user to click a button in a pop -up window is by warning of a problem, such as displaying a realistic operating system or application error message, or by offering additional services. A window appears on the screen requesting the user to re-login or warning about an interruption in the host connection, and that the network connection needs re -authentication. When the user follows these instructions, a malicious program installs, extracts the target’s sensitive information, and sends it to the attacker’s email address or a remote site. This type of attack uses trojans and viruses.", "options": ["Virus", "Pop-up Windows", "Application Assessment", "Ransomware"], "answer": 1}, {"id": 74, "definition": "A message warning its recipients of a non -existent computer virus threat. It relies on social engineering to spread its reach. Usually, hoaxes do not cause any physical damage or loss of information, but they cause a loss of productivity and use an organization’s valuable network resources.", "options": ["Passive Assessment", "Hoax Letter", "Unpatched Servers", "Active Online Attacks"], "answer": 1}, {"id": 75, "definition": "A message offering gifts, such as money and software, on the condition that the user forwards the email to a predetermined number of recipients. Common approaches used in chain letters are emotionally convincing stories, “get-rich-quick” pyramid schemes, spiritual beliefs, and", "options": ["Rule-based Attack", "System Administrators", "Chain Letter", "Social engineering"], "answer": 2}, {"id": 76, "definition": "Irrelevant, unwanted, and unsolicited emails designed to collect financial information such as social security numbers and network information. Attackers send spam messages to the target to collect sensitive information, such as bank details. Attackers may also send email attachments with hidden malicious programs, such as viruses and trojans. Social engineers try to hide the file extension by giving the attachment a long filename.", "options": ["Wire Sniffing", "Spam Mail", "Temporary or Permanent Closure", "Repackaging Legitimate Apps"], "answer": 1}, {"id": 77, "definition": "An attacker chats with selected online users via instant chat messengers and tries to gather their personal information , such as date of birth or maiden name. They then use the acquired information to crack users’ accounts.", "options": ["Instant Chat Messenger", "Chain Letter", "Dangers of Terrorism", "Internal Assessment"], "answer": 0}, {"id": 78, "definition": "A type of malware that tricks computer users into visiting malware -infested websites or downloading or buying potentially malicious software. Scareware is often seen in pop-ups that tell the target user that their machine has been infected with malware. These pop-ups convincingly appear as though they are coming from a legitimate source , such as an antivirus company. Further, these pop - up ads always have a sense of urgency and tell the victim to quickly download the software if they want to get rid of the supposed virus.", "options": ["Social engineering", "Malware", "Scareware", "Wire Sniffing"], "answer": 2}, {"id": 79, "definition": "The attacker first creates the malicious application — such as a gaming app with attractive features — and publishes it on major application stores using popular names. Unaware of the malicious application, users will download it onto their mobile device, believing it to be genuine. Once the application is installed, the device is infected by malware that sends the user’s credentials (usernames, passwords), contact details, and other information to the attacker.", "options": ["Wire Sniffing", "Host-based Assessment", "Publishing Malicious Apps", "Operating System Flaws"], "answer": 2}, {"id": 80, "definition": "A legitimate developer creates legitimate gaming applications. Platform vendors create centralized marketplaces to allow mobile users to conveniently browse and install these games and apps. Usually, developers submit gaming applications to these marketplaces, making them available to thousands of mobile users. A malicious developer downloads a legitimate game, repackages it with malware, and uploads it to the third -party application store. Once a user downloads the malicious ap plication, the malicious program installed on the user’s mobile device collects the user’s information and sends it to the attacker.", "options": ["Automated Assessment", "Syllable Attack", "Legacy Platform Vulnerabilities", "Repackaging Legitimate Apps"], "answer": 3}, {"id": 81, "definition": "Attackers may send a fake security application to perform mobile -based social engineering. In this attack, the attacker first infects the victim’s computer by sending something malicious. They then upload a malicious application to an app store. When the victim logs on to their bank account, malware in the system displays a pop -up message telling the victim that they need to download an application on their phone to receive a message from security. The victim downloads the application from the attacker’s app store, believing they are downloading a genuine app. Once the user downloads the application, the attacker obtains confidential information such as bank account login credentials (username and password), whereupon a second authentication is sent by", "options": ["Fake Security Applications", "Senior Executives", "Legacy Platform Vulnerabilities", "Virus"], "answer": 0}, {"id": 82, "definition": "Here, the SMS text messaging system is used to lure users into taking instant action, such as downloading malware, visiting a malicious webpage, or calling a fraudulent phone number. SMiShing messages are crafted to provoke an instant action from the victim, requiring them to divulge their personal information and account details. Sometimes a message claims that the user has won money or has been randomly selected as a lucky winner and that they merely need to pay a nominal fee and share their email address, contact number, or other information.", "options": ["Dictionary", "Dangers of Terrorism", "Wire Sniffing", "SMiShing (SMS Phishing)"], "answer": 3}, {"id": 83, "definition": "An organization should conduct numerous social engineering exercises using different techniques in a diverse group of people to examine how its employees might react to real social engineering attacks.", "options": ["Social Engineering Campaign", "Distributed Denial-of-Service (DDoS)", "Loss of Privacy", "Non-Electronic Attacks"], "answer": 0}, {"id": 84, "definition": "Using the information obtained from the social engineering campaign, a gap analysis evaluates the organization based on industry-leading practices, emerging threats, and mitigation strategies.", "options": ["Operating System Flaws", "Application Flaws", "Gap Analysis", "External Assessment"], "answer": 2}, {"id": 85, "definition": "Depending upon the result of the evaluation in the gap analysis, organizations develop a detailed remediation plan to mitigate the weaknesses or loopholes found in the earlier step. The plan focuses mainly on educating and creating awareness among employees based on their roles and identifying and mitigating potential threats to the organization.", "options": ["Remediation Strategies", "External Assessment", "Shoulder Surfing", "Monitor"], "answer": 0}, {"id": 86, "definition": "A threat is the potential occurrence of an undesirable event that can eventually damage and disrupt the operational and functional activities of an organization.", "options": ["Identify Assets and Create a Baseline", "Threat", "Passive Assessment", "Economic Losses"], "answer": 1}, {"id": 87, "definition": "A malware is a piece of malicious software that is designed to perform activities as intended by the attacker, without user consent.", "options": ["Zero-Day Vulnerabilities", "Malware", "Active Scanning", "Pop-up Windows"], "answer": 1}, {"id": 88, "definition": "It refers to a weakness in the design or implementation of a system that can be exploited to compromise the security of the system.", "options": ["Vulnerability", "Spam Mail", "Application Flaws", "Social Engineering Campaign"], "answer": 0}, {"id": 89, "definition": "This plays a major role in providing security to any organization’s resources and infrastructure from various internal and external threats. It is an in-depth examination of the ability of a system or application, including current security procedures and controls, to withstand exploitation.", "options": ["Damage to Goodwill", "Open Services", "Distributed Denial-of-Service (DDoS)", "Vulnerability Assessment"], "answer": 3}, {"id": 90, "definition": "Password cracking is the process of recovering passwords by using various methods and techniques.", "options": ["Password Cracking", "Hybrid Attack", "Non-Electronic Attacks", "Receptionists and Help-Desk Personnel"], "answer": 0}, {"id": 91, "definition": "Social engineering is the art of manipulating people to divulge sensitive information to use it to perform some malicious action.", "options": ["Rule-based Attack", "Distributed Assessment", "Social engineering", "Pharming"], "answer": 2}, {"id": 92, "definition": "A DoS attack is an attack on a computer or network that reduces, restricts, or prevents access to system resources for legitimate users.", "options": ["Temporary or Permanent Closure", "Misconfiguration", "Eavesdropping", "Denial-of-Service (DoS)"], "answer": 3}, {"id": 93, "definition": "A DDoS attack is a large-scale, coordinated attack on the availability of services on a victim’s system or network resources, and it is launched indirectly through many compromised computers (botnets) on the Internet.", "options": ["Offline Attacks", "Lawsuits and Arbitration", "Pharming", "Distributed Denial-of-Service (DDoS)"], "answer": 3}]};
+let current = 0, score = 0, answered = false;
+
+
+function render() {
+  const q = DATA.questions[current];
+  answered = false;
+  document.getElementById('bar').style.width = ((current)/DATA.questions.length*100) + '%';
+  document.getElementById('app').innerHTML = `
+    <div class="meta">Question ${current+1} of ${DATA.questions.length}</div>
+    <div class="definition">${escapeHtml(q.definition)}</div>
+    <div class="options" id="options">
+      ${q.options.map((o,i)=>`<button class="option" onclick="answer(${i})">${String.fromCharCode(65+i)}. ${escapeHtml(o)}</button>`).join('')}
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="controls">
+      <button class="secondary" onclick="prev()" ${current===0?'disabled':''}>Previous</button>
+      <button class="primary" id="next" onclick="next()" disabled>${current===DATA.questions.length-1?'Finish':'Next'}</button>
+    </div>`;
+}
+
+function answer(i) {
+  if (answered) return;
+  answered = true;
+  const q = DATA.questions[current];
+  const buttons = [...document.querySelectorAll('.option')];
+  buttons.forEach((b,n)=>b.disabled=true);
+  if (i === q.answer) {
+    score++;
+    buttons[i].classList.add('correct');
+    document.getElementById('feedback').textContent = 'Correct';
+    document.getElementById('feedback').style.color = 'var(--good)';
+  } else {
+    buttons[i].classList.add('wrong');
+    buttons[q.answer].classList.add('correct');
+    document.getElementById('feedback').textContent = 'Incorrect';
+    document.getElementById('feedback').style.color = 'var(--bad)';
+  }
+  document.getElementById('next').disabled = false;
+}
+function next() {
+  if (!answered) return;
+  if (current < DATA.questions.length-1) { current++; render(); }
+  else finish();
+}
+function prev() { if(current>0) { current--; render(); } }
+function finish() {
+  document.getElementById('bar').style.width='100%';
+  document.getElementById('app').innerHTML = `
+    <div class="score">Review complete</div>
+    <p class="score">${score} / ${DATA.questions.length}</p>
+    <div class="controls"><button class="primary" onclick="restart()">Restart</button></div>`;
+}
+function restart() { current=0; score=0; render(); }
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+render();
+</script>
+
+
+
+<style id="user-highlight-system">
+  .highlight-toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+    margin:14px 0;
+    padding:12px;
+    border:1px solid #dbe1ea;
+    border-radius:12px;
+    background:#f8fafc;
+  }
+  .highlight-toolbar button {
+    cursor:pointer;
+    border:1px solid #cbd5e1;
+    border-radius:8px;
+    padding:8px 12px;
+    background:#fff;
+    color:#172033;
+    font-weight:700;
+  }
+  .highlight-toolbar button.active {
+    background:#ffeb3b;
+    border-color:#b8a900;
+  }
+  .highlight-status { font-size:.9em; color:#64748b; }
+  .user-highlight {
+    background:#ffeb3b !important;
+    color:#111 !important;
+    border-radius:3px;
+    padding:0 .08em;
+    box-decoration-break:clone;
+    -webkit-box-decoration-break:clone;
+  }
+  .definition { user-select:text; -webkit-user-select:text; }
+</style>
+
+<script id="firebase-reviewer-script">
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBSHV8daNj5Up3E-Chq63R9fAZNuBm9OBU",
+    authDomain: "cns-reviewer.firebaseapp.com",
+    projectId: "cns-reviewer",
+    storageBucket: "cns-reviewer.firebasestorage.app",
+    messagingSenderId: "476192420631",
+    appId: "1:476192420631:web:5f8d7ee72cf9d46f4b3d52",
+    measurementId: "G-7XV4G16HZW"
+  };
+
+  const app = firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  let currentUser = null;
+  let highlightMode = false;
+  let cloudHighlights = [];
+  let unsubscribeHighlights = null;
+
+  // Existing local highlights from the previous version can be migrated
+  // into Firestore after the admin signs in.
+  const OLD_STORAGE_KEY = "it2502_reviewer_user_highlights_v2";
+
+  function getLocalHighlights() {
+    try {
+      return JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function setLocalHighlights(items) {
+    localStorage.setItem(OLD_STORAGE_KEY, JSON.stringify(items));
+  }
+
+  function questionContainer() {
+    return document.querySelector(".definition");
+  }
+
+  function getTextNodes(root) {
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+          if (node.parentElement?.closest(".user-highlight")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+    return nodes;
+  }
+
+  function getOffset(root, container, offset) {
+    let total = 0;
+    for (const node of getTextNodes(root)) {
+      if (node === container) return total + offset;
+      total += node.nodeValue.length;
+    }
+    return total;
+  }
+
+  function findPosition(root, targetOffset) {
+    let total = 0;
+    const nodes = getTextNodes(root);
+
+    for (const node of nodes) {
+      const end = total + node.nodeValue.length;
+      if (targetOffset <= end) {
+        return { node, offset: Math.max(0, targetOffset - total) };
+      }
+      total = end;
+    }
+
+    if (!nodes.length) return null;
+    const last = nodes[nodes.length - 1];
+    return { node: last, offset: last.nodeValue.length };
+  }
+
+  function unwrapHighlights(root) {
+    root.querySelectorAll(".user-highlight").forEach(mark => {
+      mark.replaceWith(document.createTextNode(mark.textContent));
+    });
+    root.normalize();
+  }
+
+  function currentQuestionHighlights() {
+    const questionId = DATA.questions[current].id;
+    return cloudHighlights.filter(item => Number(item.questionId) === Number(questionId));
+  }
+
+  function applySavedHighlights() {
+    const root = questionContainer();
+    if (!root) return;
+
+    unwrapHighlights(root);
+
+    const saved = currentQuestionHighlights()
+      .slice()
+      .sort((a, b) => Number(b.startOffset) - Number(a.startOffset));
+
+    saved.forEach(item => {
+      const start = findPosition(root, Number(item.startOffset));
+      const end = findPosition(root, Number(item.endOffset));
+      if (!start || !end) return;
+
+      const range = document.createRange();
+
+      try {
+        range.setStart(start.node, start.offset);
+        range.setEnd(end.node, end.offset);
+        if (range.collapsed) return;
+
+        const mark = document.createElement("span");
+        mark.className = "user-highlight";
+        mark.appendChild(range.extractContents());
+        range.insertNode(mark);
+      } catch (error) {
+        console.warn("Could not restore highlight:", error);
+      }
+    });
+  }
+
+  function updateToolbar() {
+    const toolbar = document.getElementById("userHighlightToolbar");
+    if (!toolbar) return;
+
+    toolbar.hidden = !currentUser;
+
+    const button = document.getElementById("toggleHighlight");
+    if (!button) return;
+
+    button.classList.toggle("active", highlightMode);
+    button.textContent = highlightMode
+      ? "🖍 Highlight: ON"
+      : "🖍 Highlight: OFF";
+  }
+
+  function setStatus(message) {
+    const status = document.getElementById("highlightStatus");
+    if (status) status.textContent = message;
+  }
+
+  async function saveHighlight(item) {
+    if (!currentUser) {
+      setStatus("Admin login is required to save highlights.");
+      return;
+    }
+
+    const docId =
+      "q" + item.questionId +
+      "_" + item.startOffset +
+      "_" + item.endOffset;
+
+    await db.collection("reviewerHighlights").doc(docId).set({
+      questionId: Number(item.questionId),
+      selectedText: item.selectedText,
+      startOffset: Number(item.startOffset),
+      endOffset: Number(item.endOffset),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: currentUser.uid
+    }, { merge: true });
+  }
+
+  async function addHighlightFromSelection() {
+    if (!currentUser || !highlightMode) return;
+
+    const root = questionContainer();
+    const selection = window.getSelection();
+
+    if (!root || !selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+
+    const range = selection.getRangeAt(0);
+    if (!root.contains(range.commonAncestorContainer)) return;
+
+    const selectedText = selection.toString();
+    if (!selectedText.trim()) return;
+
+    const startOffset = getOffset(root, range.startContainer, range.startOffset);
+    const endOffset = getOffset(root, range.endContainer, range.endOffset);
+    if (endOffset <= startOffset) return;
+
+    const item = {
+      questionId: DATA.questions[current].id,
+      selectedText,
+      startOffset,
+      endOffset
+    };
+
+    try {
+      await saveHighlight(item);
+      selection.removeAllRanges();
+      setStatus("Highlight saved and synced to Firebase.");
+    } catch (error) {
+      console.error(error);
+      setStatus("Could not save highlight. Check your Firebase rules and login.");
+    }
+  }
+
+  async function clearCurrentQuestionHighlights() {
+    if (!currentUser) return;
+
+    const questionId = DATA.questions[current].id;
+
+    try {
+      const snap = await db.collection("reviewerHighlights")
+        .where("questionId", "==", Number(questionId))
+        .get();
+
+      const batch = db.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+
+      setStatus("Highlights cleared for this question.");
+    } catch (error) {
+      console.error(error);
+      setStatus("Could not clear highlights.");
+    }
+  }
+
+  async function clearAllHighlights() {
+    if (!currentUser) return;
+    if (!confirm("Remove all saved highlights from Firebase? This affects all devices.")) return;
+
+    try {
+      const snap = await db.collection("reviewerHighlights").get();
+      const docs = snap.docs;
+
+      for (let i = 0; i < docs.length; i += 450) {
+        const batch = db.batch();
+        docs.slice(i, i + 450).forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      }
+
+      setStatus("All Firebase highlights cleared.");
+    } catch (error) {
+      console.error(error);
+      setStatus("Could not clear all highlights.");
+    }
+  }
+
+  async function migrateOldLocalHighlights() {
+    if (!currentUser) return;
+
+    const old = getLocalHighlights();
+    if (!old.length) return;
+
+    try {
+      for (const item of old) {
+        await saveHighlight(item);
+      }
+      setLocalHighlights([]);
+      setStatus("Your previous device highlights were synced to Firebase.");
+    } catch (error) {
+      console.warn("Local highlight migration failed:", error);
+    }
+  }
+
+  function createToolbar() {
+    if (document.getElementById("userHighlightToolbar")) return;
+
+    const toolbar = document.createElement("div");
+    toolbar.id = "userHighlightToolbar";
+    toolbar.className = "highlight-toolbar";
+    toolbar.hidden = true;
+
+    toolbar.innerHTML = `
+      <button type="button" id="toggleHighlight">🖍 Highlight: OFF</button>
+      <button type="button" id="clearQuestionHighlights">Clear Question</button>
+      <button type="button" id="clearAllHighlights">Clear All</button>
+      <span class="highlight-status" id="highlightStatus">Admin login is required for highlighting.</span>
+    `;
+
+    const card = document.querySelector("main .card");
+    if (card) {
+      const note = card.querySelector(".note");
+      if (note) note.insertAdjacentElement("afterend", toolbar);
+      else card.prepend(toolbar);
+    }
+
+    document.getElementById("toggleHighlight").addEventListener("click", () => {
+      if (!currentUser) {
+        setStatus("Please log in as admin first.");
+        return;
+      }
+
+      highlightMode = !highlightMode;
+      updateToolbar();
+      setStatus(
+        highlightMode
+          ? "Select text in the question to highlight it."
+          : "Highlight mode is off."
+      );
+    });
+
+    document.getElementById("clearQuestionHighlights")
+      .addEventListener("click", clearCurrentQuestionHighlights);
+
+    document.getElementById("clearAllHighlights")
+      .addEventListener("click", clearAllHighlights);
+
+    document.addEventListener("mouseup", () => {
+      setTimeout(addHighlightFromSelection, 0);
+    });
+
+    document.addEventListener("touchend", () => {
+      setTimeout(addHighlightFromSelection, 100);
+    });
+  }
+
+  function createAuthHandlers() {
+    const loginButton = document.getElementById("loginButton");
+    const loginBox = document.getElementById("loginBox");
+    const submitLogin = document.getElementById("submitLogin");
+    const cancelLogin = document.getElementById("cancelLogin");
+    const email = document.getElementById("loginEmail");
+    const password = document.getElementById("loginPassword");
+    const message = document.getElementById("loginMessage");
+
+    loginButton.addEventListener("click", () => {
+      if (currentUser) {
+        auth.signOut();
+        return;
+      }
+      loginBox.hidden = !loginBox.hidden;
+      if (!loginBox.hidden) email.focus();
+    });
+
+    cancelLogin.addEventListener("click", () => {
+      loginBox.hidden = true;
+      message.textContent = "";
+    });
+
+    submitLogin.addEventListener("click", async () => {
+      message.textContent = "";
+
+      if (!email.value.trim() || !password.value) {
+        message.textContent = "Enter your admin email and password.";
+        return;
+      }
+
+      submitLogin.disabled = true;
+      submitLogin.textContent = "Signing in...";
+
+      try {
+        await auth.signInWithEmailAndPassword(email.value.trim(), password.value);
+        password.value = "";
+        loginBox.hidden = true;
+      } catch (error) {
+        console.error(error);
+        message.textContent = "Login failed. Check your email and password.";
+      } finally {
+        submitLogin.disabled = false;
+        submitLogin.textContent = "Sign in";
+      }
+    });
+  }
+
+  function updateAuthUI(user) {
+    currentUser = user;
+
+    const status = document.getElementById("authStatus");
+    const loginButton = document.getElementById("loginButton");
+
+    if (user) {
+      status.innerHTML = '<span class="admin-badge">Admin mode</span> — signed in';
+      loginButton.textContent = "Sign out";
+      highlightMode = false;
+      setStatus("Admin signed in. Highlighting is available.");
+    } else {
+      status.textContent = "Viewer mode — no login required.";
+      loginButton.textContent = "Admin Login";
+      highlightMode = false;
+      setStatus("Admin login is required for highlighting.");
+    }
+
+    updateToolbar();
+    applySavedHighlights();
+  }
+
+  auth.onAuthStateChanged(async user => {
+    updateAuthUI(user);
+
+    if (user) {
+      await migrateOldLocalHighlights();
+    }
+  });
+
+  function startHighlightListener() {
+    if (unsubscribeHighlights) unsubscribeHighlights();
+
+    unsubscribeHighlights = db.collection("reviewerHighlights")
+      .onSnapshot(snapshot => {
+        cloudHighlights = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        applySavedHighlights();
+      }, error => {
+        console.error("Highlight listener error:", error);
+        setStatus("Could not load Firebase highlights.");
+      });
+  }
+
+  const observer = new MutationObserver(() => {
+    if (document.querySelector(".definition")) {
+      setTimeout(applySavedHighlights, 0);
+    }
+  });
+
+  function init() {
+    createToolbar();
+    createAuthHandlers();
+    startHighlightListener();
+
+    const appRoot = document.getElementById("app");
+    if (appRoot) {
+      observer.observe(appRoot, { childList:true, subtree:true });
+    }
+
+    setTimeout(applySavedHighlights, 50);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+
+  window.refreshUserHighlights = applySavedHighlights;
+})();
+</script>
+
+</body>
+</html>
